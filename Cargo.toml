@@ -1,9 +1,13 @@
 [package]
 name = "slipwave"
+description = "A datastream-cascade simulation engine."
 version = "0.1.0"
 edition = "2018"
+license = "GPL-3.0"
+repository = "https://github.com/skyeterran/slipwave"
+keywords = ["gamedev", "simulation", "graphics"]
+include = ["/src", "LICENSE", "/examples"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-hypoloop = "0.1.7"
