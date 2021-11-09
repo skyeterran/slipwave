@@ -86,12 +86,10 @@ pub mod core {
         /// - *IRL time:* Real time (in ms) elapsed since the start of the simulation
         /// - *Sim time:* Virtual time (in ms) elapsed since the start of the simulation
         /// - *Delta time (tick):* Real time (in ms) elapsed between the last tick and the previous tick
-        /// - *Delta time (step):* Real time (in ms with ns accuracy) elapsed since the last tick
         /// - *Timestep:* Virtual time (in s with ms accuracy) elapsed since the last tick
         pub fn debug_time(self) {
             let elapsed_time = Instant::now().duration_since(self.last_tick);
-            let loop_delay_ms = elapsed_time.as_nanos() as f32 / 1_000_000.0;
-            println!("IRL time: {}ms | Sim time: {}ms | Delta time (tick): {}ms | Delta time (step): {}ms | Timestep: {}s", self.irl_time.as_millis(), self.sim_time.as_millis(), self.delta_time, loop_delay_ms, self.timestep);
+            println!("IRL time: {}ms | Sim time: {}ms | Delta time: {}ms | Timestep: {}", self.irl_time.as_millis(), self.sim_time.as_millis(), self.delta_time, self.timestep);
         }
     }
 
@@ -121,7 +119,7 @@ pub mod core {
             new_loop.state.delta_time = new_loop.update_interval;
 
             // Initialize the timestep based on the new delta time
-            new_loop.state.timestep = timestep(new_loop.state.delta_time, new_loop.state.timescale);
+            new_loop.state.timestep = 0.0;
 
             // Return the now-initialized Loop
             new_loop
@@ -154,14 +152,14 @@ pub mod core {
         }
 
         /// Executes the per-loop logic (can be triggered manually so that hypoloop can be tied into external event loops)
+        // TODO - support frameskips
         pub fn step(&mut self) {
             // don't run if the simulation is paused
             if self.state.simulate {
-                // TODO - support frameskips
-                if !self.realtime || delta_time(self.state.last_tick) >= self.update_interval {
-                    // mutable delta time and timescale for flexibility
-                    let elapsed_time = Instant::now().duration_since(self.state.last_tick);
-                    
+                // track elapsed real time each step
+                let elapsed_time = Instant::now().duration_since(self.state.last_tick);
+
+                if !self.realtime || delta_time(self.state.last_tick) >= self.update_interval {    
                     // update clocks
                     if self.realtime {
                         self.state.delta_time = delta_time(self.state.last_tick);
@@ -172,17 +170,24 @@ pub mod core {
                         self.state.sim_time += Duration::from_millis(self.update_interval as u64);
                         self.state.irl_time = Instant::now().duration_since(self.state.clock_start);
                     }
-                    self.state.timestep = timestep(self.state.delta_time, self.state.timescale);
-        
+                    
                     // mark the loop as "awake", meaning update logic should occur
                     self.awake = true;
-        
+                    
                     // record last tick time
                     self.state.last_tick = Instant::now();
                 } else {
                     // mark the loop as "asleep", meaning update logic should NOT occur
                     self.awake = false;
                 }
+                // compute the current timestep (a float describing the virtual time since last tick, in ticks)
+                let mut current_timestep = (elapsed_time.as_millis() as f32) / (self.update_interval as f32);
+                // prevent a timestep of 1.0 (which will throw off interpolation)
+                if current_timestep >= 1.0 {
+                    current_timestep = 0.0;
+                }
+                // update the sim timestep
+                self.state.timestep = current_timestep;
             }
         }
 
@@ -205,10 +210,5 @@ pub mod core {
     // gets the real time (in ms) that's elapsed since the earlier Instant
     fn delta_time(earlier: Instant) -> u32 {
         Instant::now().duration_since(earlier).as_millis() as u32
-    }
-
-    // returns the fractional timestep (in s) based on delta time and timescale
-    fn timestep(delta_time: u32, timescale: f32) -> f32 {
-        delta_time as f32 / 1000.0 * timescale
     }
 }
