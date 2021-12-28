@@ -1,4 +1,4 @@
-use slipwave::core::{State, Loop};
+use slipwave::time::{State, Loop};
 
 fn main() {
     println!("Slipwave Engine | 2021 | Skye Terran");
