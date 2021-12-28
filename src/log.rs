@@ -1,11 +1,13 @@
 pub struct Logger {
-    categories: Vec<String>
+    name: String
 }
 
 impl Logger {
-    pub fn print(self, output: &String, category: &String) {
-        if self.categories.contains(category) {
-            println!(output);
-        }
+    pub fn new(name: &str) -> Logger {
+        Logger { name: name.to_string() }
+    }
+
+    pub fn print(&self, output: &str) {
+        println!("[{}] {}", self.name, output);
     }
 }
