@@ -1,7 +1,5 @@
-use std::env;
 use slipwave::time::{State, Loop};
 use slipwave::log::{Logger};
-use slipwave::vcr::{ComputeObject};
 
 fn main() {
     println!("Slipwave Engine | 2021 | Skye Terran");
@@ -13,6 +11,9 @@ fn main() {
     log_time.print("Creating sim loop...");
     let mut sim = Loop::new();
 
+    // set if the sim is realtime or as fast as possible
+    sim.set_realtime(false);
+
     // set the loop update interval
     sim.set_update_interval(40);
 
@@ -20,11 +21,7 @@ fn main() {
     sim.get_state_mut().set_timescale(1.0);
 
     // datastream
-    let mut x: i32 = 0;
-
-    // Create a compute object
-    let args: Vec<String> = env::args().collect();
-    let file_path: &String = &args[1];
+    let mut velocity: f32 = 100.0;
     
     // execute the sim loop
     log_time.print("Executing loop...");
@@ -35,16 +32,21 @@ fn main() {
         
         // update logic goes here
         if sim.is_awake() {
-            // Create and execute a compute object
-            let mut vm = ComputeObject::from_file(file_path);
-            println!("{:?}", vm.execute());
+           velocity -= 9.8 * sim.get_state().get_timestep();
+           //println!("{}", velocity);
+           //sim.get_state().debug_time();
         }
-        //sim.get_state().debug_time();
 
         // display logic goes here
         // problem: the timestep is not what we want here. we need to get the elapsed time 
         //let timestep = sim.get_state().get_timestep();
         //let x_interpolated: f32 = x as f32 + timestep;
         //println!("x: {}", x_interpolated);
+
+        // End condition
+        if velocity < 50.0 {
+            sim.get_state().debug_time();
+            break;
+        }
     }
 }

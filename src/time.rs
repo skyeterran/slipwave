@@ -8,7 +8,7 @@ pub struct State {
     clock_start: Instant,
     last_tick: Instant,
     delta_time: u32,
-    timestep: f32,
+    lapse: f32,
     irl_time: Duration,
     sim_time: Duration
 }
@@ -23,7 +23,7 @@ impl State {
             clock_start: Instant::now(),
             last_tick: Instant::now(),
             delta_time: 0,
-            timestep: 0.0,
+            lapse: 0.0,
             irl_time: Duration::new(0,0),
             sim_time: Duration::new(0,0)
         };
@@ -37,9 +37,14 @@ impl State {
         self.delta_time
     }
 
-    /// Returns the current "timestep", the virtual time (in s) elapsed since the last update tick (necessary for scaling physics simulations, etc.)
+    /// Returns the current "timestep", which is the delta time represented in seconds as a float
     pub fn get_timestep(self) -> f32 {
-        self.timestep
+        self.delta_time as f32 / 1000.0
+    }
+
+    /// Returns the current "lapse", the virtual time (in s) elapsed since the last update tick
+    pub fn get_lapse(self) -> f32 {
+        self.lapse
     }
 
     /// Returns the current real time elapsed since the start of the simulation
@@ -80,15 +85,15 @@ impl State {
     /// Prints a string of information about the current step's timings
     ///
     /// # Example:
-    /// `IRL time: 4443ms | Sim time: 4443ms | Delta time (tick): 40ms | Delta time (step): 40.0638ms | Timestep: 0.04s`
+    /// `IRL time: 4443ms | Sim time: 4443ms | Delta time (tick): 40ms | Delta time (step): 40.0638ms | lapse: 0.04s`
     /// # Terminology:
     /// - *IRL time:* Real time (in ms) elapsed since the start of the simulation
     /// - *Sim time:* Virtual time (in ms) elapsed since the start of the simulation
     /// - *Delta time (tick):* Real time (in ms) elapsed between the last tick and the previous tick
-    /// - *Timestep:* Virtual time (in s with ms accuracy) elapsed since the last tick
+    /// - *lapse:* Virtual time (in s with ms accuracy) elapsed since the last tick
     pub fn debug_time(self) {
         let elapsed_time = Instant::now().duration_since(self.last_tick);
-        println!("IRL time: {}ms | Sim time: {}ms | Delta time: {}ms | Timestep: {}", self.irl_time.as_millis(), self.sim_time.as_millis(), self.delta_time, self.timestep);
+        println!("IRL time: {}ms | Sim time: {}ms | Delta time: {}ms | Lapse: {}", self.irl_time.as_millis(), self.sim_time.as_millis(), self.delta_time, self.lapse);
     }
 }
 
@@ -117,8 +122,8 @@ impl Loop {
         // Initialize the delta time to be the same as the update interval (to prevent division by zero)
         new_loop.state.delta_time = new_loop.update_interval;
 
-        // Initialize the timestep based on the new delta time
-        new_loop.state.timestep = 0.0;
+        // Initialize the lapse based on the new delta time
+        new_loop.state.lapse = 0.0;
 
         // Return the now-initialized Loop
         new_loop
@@ -179,14 +184,14 @@ impl Loop {
                 // mark the loop as "asleep", meaning update logic should NOT occur
                 self.awake = false;
             }
-            // compute the current timestep (a float describing the virtual time since last tick, in ticks)
-            let mut current_timestep = (elapsed_time.as_millis() as f32) / (self.update_interval as f32);
-            // prevent a timestep of 1.0 (which will throw off interpolation)
-            if current_timestep >= 1.0 {
-                current_timestep = 0.0;
+            // compute the current lapse (a float describing the virtual time since last tick, in ticks)
+            let mut current_lapse = (elapsed_time.as_millis() as f32) / (self.update_interval as f32);
+            // prevent a lapse of 1.0 (which will throw off interpolation)
+            if current_lapse >= 1.0 {
+                current_lapse = 0.0;
             }
-            // update the sim timestep
-            self.state.timestep = current_timestep;
+            // update the sim lapse
+            self.state.lapse = current_lapse;
         }
     }
 
