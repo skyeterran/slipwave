@@ -1,5 +1,6 @@
 use slipwave::time::{State, Loop};
 use slipwave::log::{Logger};
+use std::time::{Duration, Instant};
 
 fn main() {
     println!("Slipwave Engine | 2021 | Skye Terran");
@@ -12,10 +13,10 @@ fn main() {
     let mut sim = Loop::new();
 
     // set if the sim is realtime or as fast as possible
-    sim.set_realtime(false);
+    sim.set_realtime(true);
 
     // set the loop update interval
-    sim.set_update_interval(40);
+    sim.set_update_interval(Duration::from_millis(40));
 
     // set the loop's timescale
     sim.get_state_mut().set_timescale(1.0);
@@ -34,17 +35,10 @@ fn main() {
         if sim.is_awake() {
            velocity -= 9.8 * sim.get_state().get_timestep();
            //println!("{}", velocity);
-           //sim.get_state().debug_time();
         }
+        sim.get_state().debug_time();
 
-        // display logic goes here
-        // problem: the timestep is not what we want here. we need to get the elapsed time 
-        //let timestep = sim.get_state().get_timestep();
-        //let x_interpolated: f32 = x as f32 + timestep;
-        //println!("x: {}", x_interpolated);
-
-        // End condition
-        if velocity < 50.0 {
+        if velocity <= 50.0 {
             sim.get_state().debug_time();
             break;
         }

@@ -7,7 +7,7 @@ pub struct State {
     simulate: bool,
     clock_start: Instant,
     last_tick: Instant,
-    delta_time: u32,
+    delta_time: Duration,
     lapse: f32,
     irl_time: Duration,
     sim_time: Duration
@@ -22,7 +22,7 @@ impl State {
             simulate: true,
             clock_start: Instant::now(),
             last_tick: Instant::now(),
-            delta_time: 0,
+            delta_time: Duration::new(0,0),
             lapse: 0.0,
             irl_time: Duration::new(0,0),
             sim_time: Duration::new(0,0)
@@ -33,13 +33,13 @@ impl State {
     }
 
     /// Returns the current "delta time", the real time (in ms) elapsed since the last update tick
-    pub fn get_delta_time(self) -> u32 {
+    pub fn get_delta_time(self) -> Duration {
         self.delta_time
     }
 
     /// Returns the current "timestep", which is the delta time represented in seconds as a float
     pub fn get_timestep(self) -> f32 {
-        self.delta_time as f32 / 1000.0
+        self.delta_time.as_nanos() as f32 / 1_000_000_000.0
     }
 
     /// Returns the current "lapse", the virtual time (in s) elapsed since the last update tick
@@ -92,8 +92,7 @@ impl State {
     /// - *Delta time (tick):* Real time (in ms) elapsed between the last tick and the previous tick
     /// - *lapse:* Virtual time (in s with ms accuracy) elapsed since the last tick
     pub fn debug_time(self) {
-        let elapsed_time = Instant::now().duration_since(self.last_tick);
-        println!("IRL time: {}ms | Sim time: {}ms | Delta time: {}ms | Lapse: {}", self.irl_time.as_millis(), self.sim_time.as_millis(), self.delta_time, self.lapse);
+        println!("IRL time: {}ms | Sim time: {}ms | Delta time: {}ms | Lapse: {}", duration_as_ms_float(self.irl_time), duration_as_ms_float(self.sim_time), duration_as_ms_float(self.delta_time), self.lapse);
     }
 }
 
@@ -101,7 +100,7 @@ impl State {
 pub struct Loop {
     state: State,
     realtime: bool,
-    update_interval: u32,
+    update_interval: Duration,
     awake: bool
 }
 
@@ -115,7 +114,7 @@ impl Loop {
         let mut new_loop = Loop {
             state: new_state,
             realtime: true,
-            update_interval: 40,
+            update_interval: Duration::from_millis(40),
             awake: false
         };
         
@@ -162,16 +161,17 @@ impl Loop {
         if self.state.simulate {
             // track elapsed real time each step
             let elapsed_time = Instant::now().duration_since(self.state.last_tick);
+            let mut current_lapse: f32 = 0.0;
 
             if !self.realtime || delta_time(self.state.last_tick) >= self.update_interval {    
                 // update clocks
                 if self.realtime {
-                    self.state.delta_time = delta_time(self.state.last_tick);
+                    self.state.delta_time =delta_time(self.state.last_tick);
                     self.state.sim_time += elapsed_time.mul_f32(self.state.timescale);
                     self.state.irl_time += elapsed_time;
                 } else {
                     self.state.delta_time = self.update_interval;
-                    self.state.sim_time += Duration::from_millis(self.update_interval as u64);
+                    self.state.sim_time += self.update_interval;
                     self.state.irl_time = Instant::now().duration_since(self.state.clock_start);
                 }
                 
@@ -183,12 +183,9 @@ impl Loop {
             } else {
                 // mark the loop as "asleep", meaning update logic should NOT occur
                 self.awake = false;
-            }
-            // compute the current lapse (a float describing the virtual time since last tick, in ticks)
-            let mut current_lapse = (elapsed_time.as_millis() as f32) / (self.update_interval as f32);
-            // prevent a lapse of 1.0 (which will throw off interpolation)
-            if current_lapse >= 1.0 {
-                current_lapse = 0.0;
+
+                // compute the current lapse (a float describing the virtual time since last tick, in ticks)
+                current_lapse = (elapsed_time.as_nanos() as f32) / (self.update_interval.as_nanos() as f32);
             }
             // update the sim lapse
             self.state.lapse = current_lapse;
@@ -201,17 +198,21 @@ impl Loop {
     }
 
     /// Returns the "update interval", the minimum time (in ms) which will elapse between update ticks
-    pub fn get_update_interval(self) -> u32 {
+    pub fn get_update_interval(self) -> Duration {
         self.update_interval
     }
 
     /// Changes the update interval
-    pub fn set_update_interval(&mut self, update_interval: u32) {
+    pub fn set_update_interval(&mut self, update_interval: Duration) {
         self.update_interval = update_interval;
     }
 }
 
-// gets the real time (in ms) that's elapsed since the earlier Instant
-fn delta_time(earlier: Instant) -> u32 {
-    Instant::now().duration_since(earlier).as_millis() as u32
+// gets the real time (in ns) that's elapsed since the earlier Instant
+fn delta_time(earlier: Instant) -> Duration {
+    Instant::now().duration_since(earlier)
+}
+
+fn duration_as_ms_float(duration: Duration) -> f32 {
+    duration.as_nanos() as f32 / 1_000_000.0
 }
